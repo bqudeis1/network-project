@@ -13,6 +13,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <vector>
+#include <iostream>
+#include <string>
 
 using namespace std;
 
@@ -74,6 +76,7 @@ int main(int argc, char *argv[])
 
 	// loop through all the results and make a socket
 	for(p = servinfo; p != NULL; p = p->ai_next) {
+	//while(true){
 		if ((sockfd = socket(p->ai_family, p->ai_socktype,
 				p->ai_protocol)) == -1) {
 			perror("talker: socket");
@@ -89,15 +92,22 @@ int main(int argc, char *argv[])
 	}
 
         // Send commands and receive responses.
-        for(int i = 0; i < tests[test_index].size(); i++) {
-          testCommand command = tests[test_index][i];
-          if ((numbytes = sendto(sockfd, &command.req, sizeof(request), 0,
+		string cmd;
+		cout << "enter command";
+		cin >> cmd;
+		request req;
+        //for(int i = 0; i < tests[test_index].size(); i++) {
+          //testCommand command = tests[test_index][i];
+		while(true){
+			
+			strcpy(req.command, cmd.c_str()); req.value = 5;
+          if ((numbytes = sendto(sockfd, &req, sizeof(request), 0,
                                  p->ai_addr, p->ai_addrlen)) == -1) {
             perror("talker: sendto");
             exit(1);
           }
 
-          freeaddrinfo(servinfo);
+          //freeaddrinfo(servinfo);
 
 	printf("talker: sent %d bytes to %s\n", numbytes, argv[1]);
 
@@ -110,11 +120,13 @@ int main(int argc, char *argv[])
 		perror("recvfrom");
 		exit(1);
           }
-          printf("Received response: error_code=%d, message=%s, result=%f\n", res.error_code, res.err_msg, res.result);
-
+          //printf("Received response: error_code=%d, message=%s, result=%f\n", res.error_code, res.err_msg, res.result);
+		  printf("Received response: error_code=%d, message=%s, result=%f\n", res.error_code, res.err_msg, res.result);
           // Below, add error message if response is not what you expect.
 
           // And lastly, if you want to test multiple clients then add a random delay below so the interactions are mixed in the server
+		  cout << "enter command";
+		  cin >> cmd;
         }
 
 	close(sockfd);

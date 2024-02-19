@@ -15,51 +15,55 @@
 #include <unordered_map>
 #include <string>
 #include <errno.h>
+#include <map>
+#include <iostream>
+#include <sstream>
+#include <cstring>
+
 
 #define MYPORT "6666"	// the port users will be connecting to
 
 #define MAXBUFLEN 100
 
 using namespace std;
-enum STATE {HELO = 1, HELP, MODE, VALUES};
+// Response codes
+enum RESPONSE_CODE {
+    SUCCESS = 200,
+    HELLO_RESPONSE = 200,
+    HELP_RESPONSE = 200,
+    MODE_RESPONSE = 250,
+    SYNTAX_ERROR_WRONG_ORDER = 503
+};
 
-//std::unordered_map<struct sockaddr_in, int> session_information;
-// Define struct clientcommand
-typedef struct {
-    char command[50];
+// Response messages
+unordered_map<int, string> response_messages = {
+    {SUCCESS, "Command Success."},
+    {HELLO_RESPONSE, "HELO"},
+    {HELP_RESPONSE, "<print menu>"},
+    {MODE_RESPONSE, "Mode Ready"},
+    {SYNTAX_ERROR_WRONG_ORDER, "Wrong Command Order: Mode Not Selected"}
+};
+
+// Enum for states
+enum STATE { NOT_IN_STATE = 1, HELLO, HELP, MODE };
+
+// Global variables
+STATE current_state = NOT_IN_STATE;
+string response_code;
+int UDP_PORT;
+string SERVER_IP;
+int SERVER_PORT;
+char m[512];
+
+struct clientRequest {
+    string command;
+    string from_unit;
+    string to_unit;
     double value;
-} request;
-
-// Define struct serverresponse
-typedef struct {
-    int error_code;
-    char err_msg[100];
-    double result;
-} response;
-
-// Not working. Please fix.
-/* int readUDP_Port(string file_name) { */
-/*     ifstream inputFile(file_name); */
-/*     string line; */
-
-/*     if (inputFile.is_open()) { */
-/*         while (getline(inputFile, line)) { */
-/*             if (line.find("UDP_PORT=") != string::npos) { */
-/*                 size_t pos = line.find("="); */
-/*                  return stoi(line.substr(pos + 1)); */
-/*                 break; */
-/*             } */
-/*         } */
-/*         inputFile.close(); */
-/*     } */
-/*     else { */
-/*         cout << "Unable to open file!" << endl; */
-/*     } */
-/* } */
+} Trequest;
 
 double convertArea(double value, const string& from_unit, const string& to_unit) {
-  unordered_map<string, double> area_factors;
-  area_factors = {
+    const map<string, double> area_factors = {
         {"SQRMT", 1.0},
         {"SQRML", 0.000000386102},
         {"SQRIN", 0.00064516},
@@ -73,8 +77,7 @@ double convertArea(double value, const string& from_unit, const string& to_unit)
 }
 
 double convertVolume(double value, const string& from_unit, const string& to_unit) {
-  unordered_map<string, double> volume_factors;
-  volume_factors = {
+    const map<string, double> volume_factors = {
         {"LTR", 1.0},
         {"GALNU", 3.78541},
         {"GALNI", 4.54609},
@@ -88,8 +91,7 @@ double convertVolume(double value, const string& from_unit, const string& to_uni
 }
 
 double convertWeight(double value, const string& from_unit, const string& to_unit) {
-  unordered_map<string, double> weight_factors;
-    weight_factors = {
+    const map<string, double> weight_factors = {
         {"KILO", 1.0},
         {"PND", 0.453592},
         {"CART", 0.0002}
@@ -127,6 +129,213 @@ double convertTemperature(double value, const string& from_unit, const string& t
     return value;
 }
 
+void setResponseCode(int code) {
+    if (current_state != MODE)
+        response_code = to_string(code) + " " + response_messages[code];
+
+}
+
+
+//string getResponseMessage(int code) {
+//    switch (code) {
+//    case 200:
+//    case 210:
+//    case 220:
+//    case 230:
+//    case 240:
+//    case 250:
+//        return "" + code;
+//        break;
+//    case 500:
+//        return "500 - Syntax Error, command unrecognized.";
+//        break;
+//    case 501:
+//        return "501 - Syntax error in parameters or arguments.";
+//        break;
+//    case 503:
+//        return "503 - Bad sequence of commands.";
+//        break;
+//    case 504:
+//        return "504 - Bad conversion request.";
+//        break;
+//    default:
+//        return "Unknown response code.";
+//    }
+//}
+
+void enterMode(string str) {
+    //cout << response_messages[MODE_RESPONSE] << endl;
+    //setResponseCode(MODE_RESPONSE);
+    current_state = MODE;
+    if (str == "AREA") {
+        response_code = "210 AREA MODE READY!";
+    }
+    else if (str == "VOL") {
+        response_code = "220 VOL MODE READY!";
+    }
+    else if (str == "WGT") {
+        response_code = "230 WGT MODE READY!";
+    }
+    else if (str == "TEMP") {
+        response_code = "240 TEMP MODE READY!";
+    }
+    else {
+        //cout << "Invalid command!" << endl;
+        setResponseCode(SYNTAX_ERROR_WRONG_ORDER);
+        return;
+    }
+}
+
+void handleCommand(const clientRequest& request) {
+    double result = 0.0;
+
+    if (request.command == "AREA") {
+        result = convertArea(request.value, request.from_unit, request.to_unit);
+        response_code = "250" + to_string(result);
+    }
+    else if (request.command == "VOL") {
+        result = convertVolume(request.value, request.from_unit, request.to_unit);
+        response_code = "250" + to_string(result);
+    }
+    else if (request.command == "WGT") {
+        result = convertWeight(request.value, request.from_unit, request.to_unit);
+        response_code = "250" + to_string(result);
+    }
+    else if (request.command == "TEMP") {
+        result = convertTemperature(request.value, request.from_unit, request.to_unit);
+        response_code = "250" + to_string(result);
+    }
+    else {
+        cout << "Invalid command!" << endl;
+        setResponseCode(SYNTAX_ERROR_WRONG_ORDER);
+        return;
+    }
+
+    //cout << response_messages[MODE_RESPONSE] << ": " << result << endl;
+}
+
+// Function to process input
+void processInput(const clientRequest& request) {
+    switch (current_state) {
+    case NOT_IN_STATE:
+        if (request.command == "HELO") {
+            cout << response_messages[HELLO_RESPONSE] << endl;
+            setResponseCode(HELLO_RESPONSE);
+            current_state = HELLO;
+        }
+        else {
+            cout << response_messages[SYNTAX_ERROR_WRONG_ORDER] << endl;
+            setResponseCode(SYNTAX_ERROR_WRONG_ORDER);
+        }
+        break;
+    case HELLO:
+        if (request.command == "HELP") {
+            cout << response_messages[HELP_RESPONSE] << endl;
+            setResponseCode(HELP_RESPONSE);
+        }
+        else if (request.command == "AREA" || request.command == "VOL" || request.command == "WGT" || request.command == "TEMP") {
+            enterMode(request.command);
+        }
+        else {
+            cout << response_messages[SYNTAX_ERROR_WRONG_ORDER] << endl;
+            setResponseCode(SYNTAX_ERROR_WRONG_ORDER);
+        }
+        break;
+
+    case HELP:
+        if (request.command == "HELP") {
+            cout << response_messages[HELP_RESPONSE] << endl;
+            setResponseCode(HELP_RESPONSE);
+        }
+        else if (request.command == "AREA" || request.command == "VOL" || request.command == "WGT" || request.command == "TEMP") {
+            enterMode(request.command);
+        }
+        else {
+            cout << response_messages[SYNTAX_ERROR_WRONG_ORDER] << endl;
+            setResponseCode(SYNTAX_ERROR_WRONG_ORDER);
+        }
+        break;
+
+    case MODE:
+        handleCommand(request);
+        break;
+    }
+}
+
+// Function to print response
+void printResponse() {
+    cout << response_code << endl;
+}
+string mainCalco(clientRequest& request) {
+    //cout << "Enter input command: ";
+    //cin >> request.command;
+
+    if (request.command != "BYE") {
+        if (request.command == "HELO" || request.command == "HELP") {
+            processInput(request);
+            //printResponse();
+            //printResponse();
+        }
+        else if (request.command == "AREA" || request.command == "VOL" || request.command == "WGT" || request.command == "TEMP") {
+            processInput(request);
+            //printResponse();
+            //printResponse();
+        }
+        else {
+
+        }
+        if (current_state == MODE) {
+            //cout << "Enter from_unit to_unit value: ";
+            //cin >> request.from_unit >> request.to_unit >> request.value;
+            //if (request.from_unit == "AREA" || request.from_unit == "VOL" || request.from_unit == "WGT" || request.from_unit == "TEMP") {
+            //    current_state = HELLO;
+            //    request.command = request.from_unit;
+            //    processInput(request);
+            //    printResponse();
+            //    printResponse();
+            //    continue;
+
+            //}
+            //else
+            //{
+            //    cin >> request.to_unit >> request.value;
+            //}
+            processInput(request);
+            //printResponse();
+            //printResponse();
+        }
+        //printResponse();
+
+        //cout << "Enter input command: ";
+        //cin >> request.command;
+    }
+    else {
+
+        setResponseCode(SUCCESS);
+        response_code = "BYE";
+        printResponse();
+    }
+    return response_code;
+    //cout << "BYE" << endl;
+}
+
+//std::unordered_map<struct sockaddr_in, int> session_information;526
+// Define struct clientcommand
+typedef struct {
+    char command[50];
+    double value;
+} request;
+
+// Define struct serverresponse
+typedef struct {
+    int error_code;
+    char err_msg[100];
+    double result;
+} response;
+
+
+
+
 string getResponseMessage(int code) {
     switch (code) {
     case 200:
@@ -154,36 +363,7 @@ string getResponseMessage(int code) {
     }
 }
 
-/* double handleCommand(request *req, struct sockaddr_in* address) { */
-/*     string from_unit, to_unit; */
-/*     double value; */
-/*     string response_code; */
 
-/*     //cout << "Enter conversion command (from_unit to_unit value): "; */
-/*     //cin >> from_unit >> to_unit >> value; */
-
-/*     double result = 0.0; */
-/*     if (mode == "AREA") { */
-/*         result = convertArea(value, from_unit, to_unit); */
-/*         setResponseCode(250); */
-/*     } */
-/*     else if (mode == "VOL") { */
-/*         result = convertVolume(value, from_unit, to_unit); */
-/*         setResponseCode(220); */
-/*     } */
-/*     else if (mode == "WGT") { */
-/*         result = convertWeight(value, from_unit, to_unit); */
-/*         setResponseCode(230); */
-/*     } */
-/*     else if (mode == "TEMP") { */
-/*         result = convertTemperature(value, from_unit, to_unit); */
-/*         setResponseCode(240); */
-/*     } */
-
-/*     cout << "Result: " << result << endl; */
-    
-/*     return result; */
-/* } */
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -229,6 +409,9 @@ void getNextMessage(int sockfd, char* message, struct sockaddr_in* client_info) 
     client_info->sin_port = their_addr.sin_port;
     client_info->sin_addr = their_addr.sin_addr;
     memset(client_info->sin_zero, 0, 8);
+    strcpy(m, message);
+
+    //m = message;
 }
 
 int listen(int port, int *sock) {
@@ -296,7 +479,26 @@ void sendResponse(int sockfd, response *res, struct sockaddr_in *client_info) {
 
   printf("Sent response of %d bytes.\n", num_bytes);
 }
+void parseInputString(const std::string& input, clientRequest& req) {
+    std::istringstream iss(input);
+    iss >> req.command;
 
+    if (req.command == "SQRMT" || req.command == "SQRML" || req.command == "SQRIN" || req.command == "SQRFT" ||
+        req.command == "LTR" || req.command == "GALNU" || req.command == "GALNI" || req.command == "CUBM" ||
+        req.command == "KILO" || req.command == "PND" || req.command == "CART" || req.command == "CELS" ||
+        req.command == "FAHR" || req.command == "KELV") {
+        // Parse three strings and a double value
+        req.from_unit = req.command;
+        req.command = "";
+        iss >> req.to_unit >> req.value;
+    }
+    else {
+        // If command is not one of the specified units, then parse it as a single string
+        //req.from_unit = req.command;
+        req.to_unit = ""; // or any default value
+        req.value = 0.0;  // or any default value
+    }
+}
 int main(void)
 {
    struct sockaddr_in client_info;
@@ -305,14 +507,24 @@ int main(void)
     printf("Listining on port %d...\n", port);
     // Handle errors in listen
     listen(port, &sockfd);
+    string cmd_init;
 
+    clientRequest request3;
     while (true) {
         char message[512] = { 0 };
         request client_request;
         getNextMessage(sockfd, message, &client_info);
-
+        //strcpy(request3.command, str.c_str());
+        string str(m);
+        parseInputString(str, request3);
+        printf("reached message = % s/n", m);
         // We need to send the correct response in handleCommand function.
-        response res = {200, "OK", 10.0};
+        //response res = {200, "OK", 10.0};
+        mainCalco(request3);
+        response res = { 200, "OK", 10.0 };
+        //res.err_msg = response_code;
+        strcpy(res.err_msg, response_code.c_str());
+        printf("sent response: error_code=%d, message=%s, result=%f\n", res.error_code, res.err_msg, res.result);
         sendResponse(sockfd, &res, &client_info);
 
         
