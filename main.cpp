@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 using namespace std;
 
 // Function declarations
@@ -43,7 +44,7 @@ int main() {
                 cout << "Exiting..." << endl;
             } 
             else if (mode == "SWITCH") {
-                cout << "SWITCHING MODES" << endl;
+                cout << "SWITCHING MODES..." << endl;
             } 
             else {
                 cout << "Invalid mode\n";
@@ -72,7 +73,7 @@ string modeSelection() {
 void metricSelection(string mode, string& fromUnit, string& toUnit, float& value) {
     bool cont = false, valid = false;
     while (!cont) {
-        cout << "\n\n************* METRIC SELECTION *************\n";
+        cout << "\n************* METRIC SELECTION *************\n";
 
         if (mode == "AREA") {
             cout << "1. SQRMT\t\t\t3. SQRIN\n2. SQRML\t\t\t4. SQRFT\n6. SWITCH\t\t\t5. EXIT\n\n";
@@ -95,12 +96,34 @@ void metricSelection(string mode, string& fromUnit, string& toUnit, float& value
         }
 
         if (valid) {
+            string inputLine;
             cout << "\nEnter original metric, desired metric, and value (i.e. SQRMT SQRML 150): ";
-            cin >> fromUnit >> toUnit >> value;
-        }
+            getline(cin, inputLine);
+            istringstream inputStream(inputLine);
 
-        // exit the while loop
-        cont = true;  
+            // check for special commands
+            if (inputLine == "SWITCH" || inputLine == "EXIT") {
+                fromUnit = inputLine;
+                cont = true;
+            }
+
+            // 3 input value conversion
+            else if (inputStream >> fromUnit >> toUnit >> value) {
+                // ensure no additional char
+                char remainingChar;
+                if (inputStream >> remainingChar) {
+                    cout << "Invalid input. Please enter exactly three values.\n";
+                } 
+
+                else {
+                    cont = true;
+                }
+            } 
+
+            else {
+                cout << "Invalid input. Please enter exactly three value or SWITCH or EXIT\n";
+            }
+        }
     }
 }
 

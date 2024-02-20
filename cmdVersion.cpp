@@ -15,8 +15,6 @@ string response_code;
 
 enum STATE {HELO = 1, HELP, MODE, VALUES};
 
-
-
 // Custom hash function for sockaddr_in
 struct sockaddr_in_hash {
     size_t operator()(const struct sockaddr_in& addr) const {
