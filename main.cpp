@@ -2,28 +2,24 @@
 using namespace std;
 
 // Function declarations
-float convertArea(float value, int fromUnit, int toUnit);
-float convertVolume(float value, int fromUnit, int toUnit);
-float convertWeight(float value, int fromUnit, int toUnit);
-float convertTemperature(float value, int fromUnit, int toUnit);
-
-#include <iostream>
-using namespace std;
+float convertArea(float value, string fromUnit, string toUnit);
+float convertVolume(float value, string fromUnit, string toUnit);
+float convertWeight(float value, string fromUnit, string toUnit);
+float convertTemperature(float value, string fromUnit, string toUnit);
 
 // Function declarations
-void modeSelection(int& mode);
-void metricSelection(int mode, int& fromUnit, int& toUnit, float& value);
+string modeSelection();
+void metricSelection(string mode, string& fromUnit, string& toUnit, float& value);
 
 int main() {
-    int mode;
     float value;
-    int fromUnit, toUnit;
+    string mode, fromUnit, toUnit;
     bool running = true;
 
     while (running) {
-        modeSelection(mode);
+        mode = modeSelection();
 
-        if(mode == 5) {
+        if (mode == "EXIT") {
             running = false;
         }
 
@@ -31,284 +27,228 @@ int main() {
             metricSelection(mode, fromUnit, toUnit, value);
 
             // Perform conversion based on the selected mode
-            switch (mode) {
-                case 1: // AREA
-                    cout << "Result: " << convertArea(value, fromUnit, toUnit) << endl;
-                    break;
-                case 2: // VOL
-                    cout << "Result: " << convertVolume(value, fromUnit, toUnit) << endl;
-                    break;
-                case 3: // WGT
-                    cout << "Result: " << convertWeight(value, fromUnit, toUnit) << endl;
-                    break;
-                case 4: // TEMP
-                    cout << "Result: " << convertTemperature(value, fromUnit, toUnit) << endl;
-                    break;
-                case 5:
-                    cout << "Exiting..." << endl;
-                    break;
-                case 6:
-                    cout << "Switching Modes..." << endl;
-                    break;
-                default:
-                    cout << "Invalid mode\n";
-                    return 1;
+            if (mode == "AREA") {
+                cout << "Result: " << convertArea(value, fromUnit, toUnit) << endl;
+            } 
+            else if (mode == "VOL") {
+                cout << "Result: " << convertVolume(value, fromUnit, toUnit) << endl;
+            } 
+            else if (mode == "WGT") {
+                cout << "Result: " << convertWeight(value, fromUnit, toUnit) << endl;
+            } 
+            else if (mode == "TEMP") {
+                cout << "Result: " << convertTemperature(value, fromUnit, toUnit) << endl;
+            } 
+            else if (mode == "EXIT") {
+                cout << "Exiting..." << endl;
+            } 
+            else if (mode == "SWITCH") {
+                cout << "SWITCHING MODES" << endl;
+            } 
+            else {
+                cout << "Invalid mode\n";
             }
         }
-
     }
-    
 
     return 0;
 }
 
-void modeSelection(int& mode) {
+string modeSelection() {
+    string mode;
     bool cont = false;
     while (!cont) {
-        cout << "\n**************** SELECT A MODE ****************";
-        cout << "\n1. AREA\t\t\t\t3. WGT\n2. VOL\t\t\t\t4. TEMP\n\t\t5. Exit";
-        cout << "\n\nEnter one of the following modes (1-4) or Exit (5): ";
+        cout << "\n************* SELECT A MODE *************";
+        cout << "\n1. AREA\t\t\t\t4. TEMP\n2. VOL\t\t\t\t5. EXIT\n3. WGT";
+        cout << "\n\nEnter one of the following modes (i.e. AREA): ";
         cin >> mode;
-        if (mode >= 1 && mode <= 5) {
-            cont = 1;
+        if (mode == "AREA" || mode == "VOL" || mode == "WGT" || mode == "TEMP" || mode == "EXIT") {
+            cont = true;
         }
     }
+    return mode;
 }
 
-void metricSelection(int mode, int& fromUnit, int& toUnit, float& value) {
-    bool cont = false;
+void metricSelection(string mode, string& fromUnit, string& toUnit, float& value) {
+    bool cont = false, valid = false;
     while (!cont) {
-        cout << "\n\n**************** METRIC SELECTION ****************\n";
-        switch (mode) {
-            case 1: // AREA
-                cout << "1. Square Meters\t\t3. Square Inches\n2. Square Miles\t\t4. Square Foot\n5. Exit \t\t6. Switch Modes\n\n";
-                break;
-            case 2: // VOL
-                cout << "1. Liters\t\t3. Imperial Gallons\n2. US Gallons\t\t4. Cubic Meters\n5. Exit \t\t6. Switch Modes\n\n";
-                break;
-            case 3: // WGT
-                cout << "1. Kilograms\n2. Pounds\n3. Carats\n4. Exit \t\t5. Switch Modes\n\n";
-                break;
-            case 4: // TEMP
-                cout << "1. Celsius\n2. Fahrenheit\n3. Kelvin\n4. Exit \t\t5. Switch Modes\n\n";
-                break;
-            default: // If none of the above
-                cout << "Invalid mode\n";
-                return;
+        cout << "\n\n************* METRIC SELECTION *************\n";
+
+        if (mode == "AREA") {
+            cout << "1. SQRMT\t\t\t3. SQRIN\n2. SQRML\t\t\t4. SQRFT\n6. SWITCH\t\t\t5. EXIT\n\n";
+            valid = true;
+        } 
+        else if (mode == "VOL") {
+            cout << "1. LTR\t\t\t3. GALNI\n2. GALNU\t\t\t4. CUBM\n6. SWITCH\t\t\t5. EXIT\n\n";
+            valid = true;        
+        } 
+        else if (mode == "WGT") {
+            cout << "1. KILO\t\t\t3. CART\n2. PND\t\t\t4. CUBM\n5. EXIT\n\n";
+            valid = true;         
+        } 
+        else if (mode == "TEMP") {
+            cout << "1. CELS\t\t\t3. KELV\n2. FAHR\t\t\t4. CUBM\n5. EXIT\n\n";
+            valid = true; 
+        } else {
+            cout << "Invalid mode\n";
+            return;
         }
 
-        if (mode == 1 || mode == 2) { // Modes 1 & 2
-            cout << "\nEnter value to convert (1-4): ";
-            cin >> fromUnit;
-
-            cout << "Enter desired metric (1-4): ";
-            cin >> toUnit;
-
-            cout << "Enter value you wish to convert: ";
-            cin >> value;
-
-            if (fromUnit >= 1 && fromUnit <= 4 && toUnit >= 1 && toUnit <= 4) {
-                cont = 1;
-            }
+        if (valid) {
+            cout << "\nEnter original metric, desired metric, and value (i.e. SQRMT SQRML 150): ";
+            cin >> fromUnit >> toUnit >> value;
         }
-        else if (mode == 3 || mode == 4) { // Modes 3 & 4
-            cout << "\nEnter value to convert (1-3): ";
-            cin >> fromUnit;
 
-            cout << "Enter desired metric (1-3): ";
-            cin >> toUnit;   
+        // exit the while loop
+        cont = true;  
+    }
+}
 
-            cout << "\nEnter value you wish to convert: ";
-            cin >> value;
-
-            if (fromUnit >= 1 && fromUnit <= 3 && toUnit >= 1 && toUnit <= 3) {
-                cont = 1;
-            }
+// convert area SQRMT, SQRML, SQRIN, and SQRFT
+float convertArea(float value, string fromUnit, string toUnit) {
+    if (fromUnit == "SQRMT") {
+        if (toUnit == "SQRML") {
+            return (value / 2589988.11);
+        } 
+        else if (toUnit == "SQRIN") {
+            return (value * 1550);
+        } 
+        else if (toUnit == "SQRFT") {
+            return (value * 10.764);
+        }
+    } 
+    else if (fromUnit == "SQRML") {
+        if (toUnit == "SQRMT") {
+            return (value * 2589988.11);
+        } 
+        else if (toUnit == "SQRIN") {
+            return (value * 4014489600);
+        } 
+        else if (toUnit == "SQRFT") {
+            return (value * 27878555.87);
+        }
+    } 
+    else if (fromUnit == "SQRIN") {
+        if (toUnit == "SQRMT") {
+            return (value / 1550);
+        } 
+        else if (toUnit == "SQRML") {
+            return (value / 4014489600);
+        } 
+        else if (toUnit == "SQRFT") {
+            return (value / 144);
+        }
+    } 
+    else if (fromUnit == "SQRFT") {
+        if (toUnit == "SQRMT") {
+            return (value / 10.764);
+        } 
+        else if (toUnit == "SQRML") {
+            return (value / 27878555.87);
+        } 
+        else if (toUnit == "SQRIN") {
+            return (value * 144);
         }
     }
 }
 
-// Conversion functions
-float convertArea(float value, int fromUnit, int toUnit) {
-    switch (fromUnit) { // SQRMT SQRML SQRIN SQRFT 
-        case 1:
-            switch (toUnit) {
-                case 2:
-                    return (value / 2589988.11);
-                    break;
-                case 3:
-                    return (value * 1550);
-                    break;
-                case 4:
-                    return (value * 10.764);
-                    break;
-            }
-            break;
-        case 2:
-            switch (toUnit) {
-                case 1:
-                    return (value * 2589988.11);
-                    break;
-                case 3:
-                    return (value * 4014489600);
-                    break;
-                case 4:
-                    return (value * 27878555.87);
-                    break;
-            }
-            break;
-        case 3:
-            switch (toUnit) {
-                case 1:
-                    return (value / 1550);
-                    break;
-                case 2:
-                    return (value / 4014489600);
-                    break;
-                case 4:
-                    return (value / 144);
-                    break;
-            }
-            break;  
-        case 4:
-            switch (toUnit) {
-                case 1:
-                    return (value / 10.764);
-                    break;
-                case 2:
-                    return (value / 27878555.87);
-                    break;
-                case 3:
-                    return (value * 144);
-                    break;
-            }
-            break;   
+// convert volume LTR, GALNU, GALNI, and CUBM
+float convertVolume(float value, string fromUnit, string toUnit) {
+    if (fromUnit == "LTR") {
+        if (toUnit == "GALNU") {
+            return (value / 3.785);
+        } 
+        else if (toUnit == "GALNI") {
+            return (value / 4.546);
+        } 
+        else if (toUnit == "CUBM") {
+            return (value / 1000);
+        }
+    } else if (fromUnit == "GALNU") {
+        if (toUnit == "LTR") {
+            return (value * 3.785);
+        } 
+        else if (toUnit == "GALNI") {
+            return (value * 0.83267384);
+        } 
+        else if (toUnit == "CUBM") {
+            return (value / 264.2);
+        }
+    } else if (fromUnit == "GALNI") {
+        if (toUnit == "LTR") {
+            return (value * 4.546);
+        } 
+        else if (toUnit == "GALNU") {
+            return (value / 0.83267384);
+        } 
+        else if (toUnit == "CUBM") {
+            return (value / 220);
+        }
+    } else if (fromUnit == "CUBM") {
+        if (toUnit == "LTR") {
+            return (value * 1000);
+        } 
+        else if (toUnit == "GALNU") {
+            return (value * 264.2);
+        } 
+        else if (toUnit == "GALNI") {
+            return (value * 220);
+        }
     }
 }
 
-float convertVolume(float value, int fromUnit, int toUnit) {
-    switch (fromUnit) { // Liters, US Gallons, Imperial Gallons, Cubic Meters
-        case 1:
-            switch (toUnit) {
-                case 2:
-                    return (value / 3.785);
-                    break;
-                case 3:
-                    return (value / 4.546);
-                    break;
-                case 4:
-                    return (value / 1000);
-                    break;
-                }
-            break;
-        case 2:
-            switch (toUnit) {
-                case 1:
-                    return (value * 3.785);
-                    break;
-                case 3:
-                    return (value * 0.83267384);
-                    break;
-                case 4:
-                    return (value / 264.2);
-                    break;
-            }
-            break;
-        case 3:
-            switch (toUnit) {
-                case 1:
-                    return (value * 4.546);
-                    break;
-                case 2:
-                    return (value / 0.83267384);
-                    break;
-                case 4:
-                    return (value / 220);
-                    break;
-            }
-            break;  
-        case 4:
-            switch (toUnit) {
-                case 1:
-                    return (value * 1000);
-                    break;
-                case 2:
-                    return (value * 264.2);
-                    break;
-                case 3:
-                    return (value * 220);
-                    break;
-            }
-            break;   
+// convert weight KILO PND CART
+float convertWeight(float value, string fromUnit, string toUnit) {
+    if (fromUnit == "KILO") {
+        if (toUnit == "PND") { 
+            return (value * 2.205);
+        } 
+        else if (toUnit == "CART") { 
+            return (value * 5000);
+        }
+    } 
+    else if (fromUnit == "PND") { 
+        if (toUnit == "KILO") { 
+            return (value / 2.205);
+        } 
+        else if (toUnit == "CART") { 
+            return (value * 2268);
+        }
+    } 
+    else if (fromUnit == "CART") { 
+        if (toUnit == "KILO") { 
+            return (value / 5000);
+        } 
+        else if (toUnit == "PND") { 
+            return (value / 2268);
+        }
     }
 }
 
-float convertWeight(float value, int fromUnit, int toUnit) {
-    switch (fromUnit) { // Kilograms, Pounds, and Carats
-        case 1:
-            switch (toUnit) {
-                case 2:
-                    return (value * 2.205);
-                    break;
-                case 3:
-                    return (value * 5000);
-                    break;
-                }
-            break;
-        case 2:
-            switch (toUnit) {
-                case 1:
-                    return (value / 2.205);
-                    break;
-                case 3:
-                    return (value * 2268);
-                    break;
-            }
-            break;
-        case 3:
-            switch (toUnit) {
-                case 1:
-                    return (value / 5000);
-                    break;
-                case 2:
-                    return (value / 2268);
-                    break;
-            }
-            break;    
-    }
-}
-
-float convertTemperature(float value, int fromUnit, int toUnit) {
-    switch (fromUnit) { // Celsius, Fahrenheit, and Kelvin
-        case 1:
-            switch (toUnit) {
-                case 2:
-                    return ((value / 1.8) + 32);
-                    break;
-                case 3:
-                    return (value  + 273.15);
-                    break;
-                }
-            break;
-        case 2:
-            switch (toUnit) {
-                case 1:
-                    return ((value - 32) * (5/9));
-                    break;
-                case 3:
-                    return ( ( (value - 32) * (5/9) ) + 273.15);
-                    break;
-            }
-            break;
-        case 3:
-            switch (toUnit) {
-                case 1:
-                    return (value - 273.15);
-                    break;
-                case 2:
-                    return ( ( (value - 273.15) * (9/5) ) + 32);
-                    break;
-            }
-            break;    
-    }
+// convert temp CELS FAHR KELV
+float convertTemperature(float value, string fromUnit, string toUnit) {
+    if (fromUnit == "CELS") {
+        if (toUnit == "FAHR") { 
+            return ((value / 1.8) + 32);
+        } 
+        else if (toUnit == "KELV") { 
+            return (value  + 273.15);
+        }
+    } 
+    else if (fromUnit == "FAHR") { 
+        if (toUnit == "CELS") { 
+            return ((value - 32) * (5/9));
+        } 
+        else if (toUnit == "KELV") { 
+            return ( ( (value - 32) * (5/9) ) + 273.15);
+        }
+    } 
+    else if (fromUnit == "KELV") { 
+        if (toUnit == "CELS") { 
+            return (value - 273.15);
+        } 
+        else if (toUnit == "FAHR") { 
+            return ( ( (value - 273.15) * (9/5) ) + 32);
+        }
+    } 
 }
