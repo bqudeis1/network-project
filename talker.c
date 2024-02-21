@@ -16,6 +16,8 @@
 #include <iostream>
 #include <string>
 #include <cstdio>
+#include <fstream>
+
 
 using namespace std;
 
@@ -25,7 +27,9 @@ typedef struct {
     char command[50];
     double value;
 } request;
-
+//global
+string SERVER_IP;
+int SERVER_PORT;
 // Define struct serverresponse
 typedef struct {
     int error_code;
@@ -57,10 +61,37 @@ void* get_in_addr(struct sockaddr* sa)
 	}
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
+void readServerConfig(string filename) {
+	ifstream inputFile(filename);
+	string line;
+
+	if (inputFile.is_open()) {
+		while (getline(inputFile, line)) {
+			if (line.find("SERVER_IP=") != string::npos) {
+				size_t pos = line.find("=");
+				SERVER_IP = line.substr(pos + 1);
+			}
+			else if (line.find("SERVER_PORT=") != string::npos) {
+				size_t pos = line.find("=");
+				SERVER_PORT = atoi(line.substr(pos + 1).c_str());
+			}
+		}
+		cout << "Port: " << SERVER_PORT << endl;
+		cout << "IP: " << SERVER_IP << endl;
+		inputFile.close();
+	}
+	else {
+		cout << "Unable to open server_config.txt!" << endl;
+	}
+}
+
+
 
 
 int main(int argc, char *argv[])
 {
+	readServerConfig(argv[1]);
+	
 	int sockfd;
 	struct addrinfo hints, *servinfo, *p;
 	int rv;
@@ -69,8 +100,8 @@ int main(int argc, char *argv[])
         // Each client should randomly pick a test case.
         initTestCases();
         int test_index = 0;
-        
-	if (argc != 3) {
+    
+	if (argc != 2) {
 		fprintf(stderr,"usage: talker hostname message\n");
 		exit(1);
 	}
@@ -79,7 +110,7 @@ int main(int argc, char *argv[])
 	hints.ai_family = AF_INET; // set to AF_INET to use IPv4
 	hints.ai_socktype = SOCK_DGRAM;
 
-	if ((rv = getaddrinfo(argv[1], SERVERPORT, &hints, &servinfo)) != 0) {
+	if ((rv = getaddrinfo("localhost", std::to_string(SERVER_PORT).c_str(), &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
