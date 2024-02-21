@@ -15,6 +15,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <cstdio>
 
 using namespace std;
 
@@ -48,6 +49,15 @@ void initTestCases() {
                      
   // Add more tests cases below.
 }
+// Define the get_in_addr function
+void* get_in_addr(struct sockaddr* sa)
+{
+	if (sa->sa_family == AF_INET) {
+		return &(((struct sockaddr_in*)sa)->sin_addr);
+	}
+	return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -93,8 +103,8 @@ int main(int argc, char *argv[])
 
         // Send commands and receive responses.
 		string cmd;
-		cout << "enter command";
-		cin >> cmd;
+		cout << "enter command: ";
+		getline(cin, cmd);
 		request req;
         //for(int i = 0; i < tests[test_index].size(); i++) {
           //testCommand command = tests[test_index][i];
@@ -109,7 +119,7 @@ int main(int argc, char *argv[])
 
           //freeaddrinfo(servinfo);
 
-	printf("talker: sent %d bytes to %s\n", numbytes, argv[1]);
+	//printf("talker: sent %d bytes to %s\n", numbytes, argv[1]);
 
           // Now receive the response
           response res;
@@ -121,12 +131,26 @@ int main(int argc, char *argv[])
 		exit(1);
           }
           //printf("Received response: error_code=%d, message=%s, result=%f\n", res.error_code, res.err_msg, res.result);
-		  printf("Received response: error_code=%d, message=%s, result=%f\n", res.error_code, res.err_msg, res.result);
+		  //line22
+		  if (strcmp(res.err_msg, "200 Command Success.") == 0) {
+			  // Declaration of ipAddress should be inside this block
+			  char ipAddress[INET6_ADDRSTRLEN];
+			  inet_ntop(their_addr.sin_family,
+				  get_in_addr((struct sockaddr*)&their_addr),
+				  ipAddress, sizeof ipAddress);
+			  snprintf(res.err_msg, sizeof(res.err_msg), "200 HELO %s (UDP)", ipAddress);
+		  }
+		  //printf("Talker address: %s:%d\n", ipAddress, ntohs(their_addr.sin_port));
+		  
+		  //line22
+		  //printf("Received response: error_code=%d, message=%s, result=%f\n", res.error_code, res.err_msg, res.result);
+		  printf("%s\n", res.err_msg);
+		  if (strcmp(res.err_msg, "BYE") == 0) break;
           // Below, add error message if response is not what you expect.
 
           // And lastly, if you want to test multiple clients then add a random delay below so the interactions are mixed in the server
-		  cout << "enter command";
-		  cin >> cmd;
+		  cout << "enter command: ";
+		  getline(cin, cmd);
         }
 
 	close(sockfd);
