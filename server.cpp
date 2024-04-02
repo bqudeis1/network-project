@@ -32,37 +32,77 @@ public:
 };
 
 class Request {
-public:
-    string command;
-    string from_unit;
-    string to_unit;
-    double value;
-    string user_name; // Added field to store user name
+    public:
+        string command;
+        string from_unit="";
+        string to_unit="";
+        double value=0;
+        string user_name; 
+        string mode;
+
+        void clearCalc(){
+            from_unit=""; 
+            to_unit=""; 
+            value=0;
+        };
 };
 
 class State {
-public:
-    enum Type {
-        NOT_IN_STATE = 1,
-        HELLO,
-        HELP,
-        MODE,
-        COMMAND_SUCCESS,
-        SYNTAX_ERROR_COMMAND_UNRECOGNIZED,
-        SYNTAX_ERROR_PARAMETER_ARGUMENTS,
-        BAD_SEQUENCE_COMMANDS,
-        BAD_CONVERSION_REQUEST
-    };
+    public:
+        bool AREA = false;
+        bool VOL = false;
+        bool TEMP = false;
+        bool WGT = false;
+        bool badConversion = false;
 
-    Type current_state;
-    State() : current_state(NOT_IN_STATE) {}
+        enum Type {
+            NOT_IN_STATE = 1, HELLO, HELP, MODE,
+            COMMAND_SUCCESS,
+            SYNTAX_ERROR_COMMAND_UNRECOGNIZED,
+            SYNTAX_ERROR_PARAMETER_ARGUMENTS,
+            BAD_SEQUENCE_COMMANDS,
+            BAD_CONVERSION_REQUEST
+        };
 
-    void setState(Type state) {
-        current_state = state;
-    }
-    Type getState() const {
-        return current_state;
-    }
+        Type current_state;
+        State() : current_state(NOT_IN_STATE) {}
+
+        void setState(Type state) {
+            current_state = state;
+        }
+        Type getState() const {
+            return current_state;
+        }
+        void setMode(string Mode) {
+            if (Mode == "AREA") {
+                AREA = 1;
+            } if (Mode == "VOL") {
+                VOL = 1;
+            } if (Mode == "WGT") {
+                WGT = 1;
+            } if (Mode == "TEMP") {
+                TEMP = 1;
+            }           
+        }
+        string getMode() const {
+            if (AREA) {
+                return "AREA";
+            } if (VOL) {
+                return "VOL";
+            } if (WGT) {
+                return "WGT";
+            } if (TEMP) {
+                return "TEMP";
+            } else {
+                return 0;
+            }
+        }
+        void setAllFalse() {
+            AREA = 0; 
+            VOL = 0; 
+            WGT = 0; 
+            TEMP = 0;
+        }
 };
 
 class CommandHandler {
@@ -75,14 +115,14 @@ class CommandHandler {
                         response_code = "200 HELO " + ip_address + " (UDP)"; 
                         current_state.setState(State::HELLO);
                     } else {
-                        setResponseCode(response_code, State::SYNTAX_ERROR_COMMAND_UNRECOGNIZED);
+                        setResponseCode(response_code, State::BAD_SEQUENCE_COMMANDS);
                     }
                     break;
 
                 case State::HELLO:
                 case State::HELP:
                     if (request.command == "HELP") {
-                        response_code = "200 THE FOLLOWING ARE COMMANDS AND PARAMETERS FOR THE CONVERT";
+                        response_code = "200 <menu>";
                     } else if (request.command == "AREA" || request.command == "VOL" || request.command == "WGT" || request.command == "TEMP") {
                         enterMode(request.command, current_state, response_code);
                     } else if (request.command == "BYE") {
@@ -96,121 +136,137 @@ class CommandHandler {
                     break;
 
                 case State::MODE:
-                    handleCommand(request, response_code);
+                    if (request.command == "AREA" || request.command == "VOL" || request.command == "WGT" || request.command == "TEMP") {
+                        current_state.setAllFalse();
+                        enterMode(request.command, current_state, response_code);
+                    } 
+                    if ((request.command == "SQRMT" || request.command == "SQRML" || request.command == "SQRIN" || request.command == "SQRFT") && current_state.getMode() == "AREA" && current_state.badConversion == false) {
+                        if (current_state.badConversion == false) {
+                            response_code = "250 " + convertArea(request.value, request.from_unit, request.to_unit);
+                        }
+                    } 
+                    if ((request.command == "LTR" || request.command == "GALNU" || request.command == "GALNI" || request.command == "CUBM") && current_state.getMode() == "VOL" && current_state.badConversion == false) {
+                        if (current_state.badConversion == false) {
+                            response_code = "250 " + convertVolume(request.value, request.from_unit, request.to_unit);
+                        }
+                    } 
+                    if ((request.command == "KILO" || request.command == "PND" || request.command == "CART") && current_state.getMode() == "WGT" && current_state.badConversion == false) {
+                        if (current_state.badConversion == false) {
+                            response_code = "250 " + convertWeight(request.value, request.from_unit, request.to_unit);
+                        }                       
+                    } 
+                    if ((request.command == "CELS" || request.command == "FAHR" || request.command == "KELV") && current_state.getMode() == "TEMP" && current_state.badConversion == false) {
+                        if (current_state.badConversion == false) {
+                            response_code = "250 " + convertTemperature(request.value, request.from_unit, request.to_unit);
+                        }  
+                    }
+                    
+                    if (request.command == "BYE") {
+                        string ip_address = string(inet_ntoa(client_info.sin_addr));
+                        response_code = "200 BYE " + ip_address + " (UDP)"; 
+                        current_state.setState(State::NOT_IN_STATE); 
+                        return; 
+                    }
                     break;
                     
                 default:
-                    setResponseCode(response_code, State::BAD_SEQUENCE_COMMANDS);
+                    setResponseCode(response_code, State::SYNTAX_ERROR_COMMAND_UNRECOGNIZED);
                     break;
             }
         }
 
-    private:
         void enterMode(const string& command, State& current_state, string& response_code) {
             current_state.setState(State::MODE);
             if (command == "AREA") {
                 response_code = "210 AREA Mode ready!";
+                current_state.setMode("AREA");
             } else if (command == "VOL") {
                 response_code = "220 VOL Mode ready!";
+                current_state.setMode("VOL");
             } else if (command == "WGT") {
                 response_code = "230 WGT Mode ready!";
+                current_state.setMode("WGT");
             } else if (command == "TEMP") {
                 response_code = "240 TEMP Mode ready!";
+                current_state.setMode("TEMP");
             } else {
-                setResponseCode(response_code, State::BAD_SEQUENCE_COMMANDS);
+                setResponseCode(response_code, State::SYNTAX_ERROR_COMMAND_UNRECOGNIZED); 
             }
         }
 
-        void handleCommand(const Request& request, string& response_code) {
-            double result = 0.0;
-            if (request.command == "AREA") {
-                result = convertArea(request.value, request.from_unit, request.to_unit);
-                response_code = "250 " + to_string(result);
-            } else if (request.command == "VOL") {
-                result = convertVolume(request.value, request.from_unit, request.to_unit);
-                response_code = "250 " + to_string(result);
-            } else if (request.command == "WGT") {
-                result = convertWeight(request.value, request.from_unit, request.to_unit);
-                response_code = "250 " + to_string(result);
-            } else if (request.command == "TEMP") {
-                result = convertTemperature(request.value, request.from_unit, request.to_unit);
-                response_code = "250 " + to_string(result);
-            } else {
-                setResponseCode(response_code, State::BAD_SEQUENCE_COMMANDS);
-            }
+        string convertArea(double value, const string& from_unit, const string& to_unit) {
+            if (from_unit == "SQRMT") {
+                if (to_unit == "SQRML") return to_string(value / 2589988.11);
+                if (to_unit == "SQRIN") return to_string(value * 1550);
+                if (to_unit == "SQRFT") return to_string(value * 10.764);
+            } else if (from_unit == "SQRML") {
+                if (to_unit == "SQRMT") return to_string(value * 2589988.11);
+                if (to_unit == "SQRIN") return to_string(value * 4014489600);
+                if (to_unit == "SQRFT") return to_string(value * 27878555.87);
+            } else if (from_unit == "SQRIN") {
+                if (to_unit == "SQRMT") return to_string(value / 1550);
+                if (to_unit == "SQRML") return to_string(value / 4014489600);
+                if (to_unit == "SQRFT") return to_string(value / 144);
+            } else if (from_unit == "SQRFT") {
+                if (to_unit == "SQRMT") return to_string(value / 10.764);
+                if (to_unit == "SQRML") return to_string(value / 27878555.87);
+                if (to_unit == "SQRIN") return to_string(value * 144);
+            } else if (from_unit == to_unit) {value = value;}
+            return ""; // Handle other cases
         }
 
-        double convertArea(double value, const string& from_unit, const string& to_unit) {
-            const map<string, double> area_factors = {
-                {"SQRMT", 1.0},
-                {"SQRML", 0.000000386102},
-                {"SQRIN", 0.00064516},
-                {"SQRFT", 0.092903}
-            };
-            double from_factor = area_factors.at(from_unit);
-            double to_factor = area_factors.at(to_unit);
-            return value * from_factor / to_factor;
+        string convertVolume(double value, const string& from_unit, const string& to_unit) {
+            if (from_unit == "LTR") {
+                if (to_unit == "GALNU") return to_string(value / 3.785);
+                if (to_unit == "GALNI") return to_string(value / 4.546);
+                if (to_unit == "CUBM") return to_string(value / 1000);
+            } else if (from_unit == "GALNU") {
+                if (to_unit == "LTR") return to_string(value * 3.785);
+                if (to_unit == "GALNI") return to_string(value * 0.83267384);
+                if (to_unit == "CUBM") return to_string(value / 264.2);
+            } else if (from_unit == "GALNI") {
+                if (to_unit == "LTR") return to_string(value * 4.546);
+                if (to_unit == "GALNU") return to_string(value / 0.83267384);
+                if (to_unit == "CUBM") return to_string(value / 220);
+            } else if (from_unit == "CUBM") {
+                if (to_unit == "LTR") return to_string(value * 1000);
+                if (to_unit == "GALNU") return to_string(value * 264.2);
+                if (to_unit == "GALNI") return to_string(value * 220);
+            } else if (from_unit == to_unit) {value = value;}
+            return ""; // Handle other cases
         }
 
-        double convertVolume(double value, const string& from_unit, const string& to_unit) {
-            const map<string, double> volume_factors = {
-                {"LTR", 1.0},
-                {"GALNU", 3.78541},
-                {"GALNI", 4.54609},
-                {"CUBM", 1000.0}
-            };
-            double from_factor = volume_factors.at(from_unit);
-            double to_factor = volume_factors.at(to_unit);
-            return value * from_factor / to_factor;
+        string convertWeight(double value, const string& from_unit, const string& to_unit) {
+            if (from_unit == "KILO") {
+                if (to_unit == "PND") return to_string(value * 2.205);
+                if (to_unit == "CART") return to_string(value * 5000);
+            } else if (from_unit == "PND") {
+                if (to_unit == "KILO") return to_string(value / 2.205);
+                if (to_unit == "CART") return to_string(value * 2268);
+            } else if (from_unit == "CART") {
+                if (to_unit == "KILO") return to_string(value / 5000);
+                if (to_unit == "PND") return to_string(value / 2268);
+            } else if (from_unit == to_unit) {value = value;}
+            return ""; // Handle other cases
         }
 
-        double convertWeight(double value, const string& from_unit, const string& to_unit) {
-            const map<string, double> weight_factors = {
-                {"KILO", 1.0},
-                {"PND", 0.453592},
-                {"CART", 0.0002}
-            };
-            double from_factor = weight_factors.at(from_unit);
-            double to_factor = weight_factors.at(to_unit);
-            return value * from_factor / to_factor;
-        }
-
-        double convertTemperature(double value, const string& from_unit, const string& to_unit) {
-            if (from_unit == to_unit)
-                return value;
+        string convertTemperature(double value, const string& from_unit, const string& to_unit) {
             if (from_unit == "CELS") {
-                if (to_unit == "FAHR")
-                    return (value * 9 / 5) + 32;
-                else if (to_unit == "KELV")
-                    return value + 273.15;
+                if (to_unit == "FAHR") return to_string((value * 9 / 5) + 32);
+                if (to_unit == "KELV") return to_string(value + 273.15);
             } else if (from_unit == "FAHR") {
-                if (to_unit == "CELS")
-                    return (value - 32) * 5 / 9;
-                else if (to_unit == "KELV")
-                    return (value + 459.67) * 5 / 9;
+                if (to_unit == "CELS") return to_string((value - 32) * 5 / 9);
+                if (to_unit == "KELV") return to_string((value + 459.67) * 5 / 9);
             } else if (from_unit == "KELV") {
-                if (to_unit == "CELS")
-                    return value - 273.15;
-                else if (to_unit == "FAHR")
-                    return (value * 9 / 5) - 459.67;
-            }
-            return value;
+                if (to_unit == "CELS") return to_string(value - 273.15);
+                if (to_unit == "FAHR") return to_string((value * 9 / 5) - 459.67);
+            } else if (from_unit == to_unit) {value = value;}
+            return ""; // Handle other cases
         }
+
 
         void setResponseCode(string& response_code, State::Type code) {
             switch (code) {
-                case State::HELLO:
-                    response_code = "200 HELO";
-                    break;
-                case State::HELP:
-                    response_code = "200 <menu>";
-                    break;
-                case State::MODE:
-                    response_code = "210 MODE ready!";
-                    break;
-                case State::COMMAND_SUCCESS:
-                    response_code = "250 Command Successful";
-                    break;
                 case State::SYNTAX_ERROR_COMMAND_UNRECOGNIZED:
                     response_code = "500 Syntax Error, command unrecognized.";
                     break;
@@ -263,13 +319,9 @@ void sendResponse(int sockfd, Response *res, struct sockaddr_in *client_info) {
     }
 }
 
-
 void logRequest(const Request* req, struct sockaddr_in *client_info) {
     char ipAddress[INET6_ADDRSTRLEN];
-    inet_ntop(client_info->sin_family,
-        get_in_addr((struct sockaddr*)client_info),
-        ipAddress, sizeof ipAddress);
-    //printf("\nRequest: command=%s, value=%f, source IP=%s, port=%d\n", req->command.c_str(), req->value, ipAddress, ntohs(client_info->sin_port));
+    inet_ntop(client_info->sin_family, get_in_addr((struct sockaddr*)client_info), ipAddress, sizeof ipAddress);
 }
 
 int readUDPPortFromConfig(const char *configFilePath) {
@@ -282,14 +334,14 @@ int readUDPPortFromConfig(const char *configFilePath) {
     while (getline(configFile, line)) {
         size_t found = line.find("UDP_PORT=");
         if (found != string::npos) {
-            string udpPortStr = line.substr(found + 9); // Length of "UDP_PORT=" is 8
+            string udpPortStr = line.substr(found + 9); // len of "UDP_PORT=" is 8
             configFile.close();
             return atoi(udpPortStr.c_str());
         }
     }
     configFile.close();
     cerr << "Error: UDP_PORT not found in configuration file." << endl;
-    return 0; // Return 0 as error code
+    return 0;
 }
 
 int listen(int port, int *sock) {
@@ -351,6 +403,9 @@ int main(int argc, char *argv[]) {
     State current_state;
     string response_code;
 
+    // Vector to hold thread objects
+    vector<thread> threads;
+
     while (true) {
         char message[512] = { 0 };
         getNextMessage(sockfd, message, &client_info);
@@ -358,24 +413,86 @@ int main(int argc, char *argv[]) {
         istringstream iss(str);
         iss >> request.command;
 
-        // Process HELO command differently to extract user name
         if (request.command == "HELO") {
-            iss >> request.user_name; // Extract user name
-        } else if (request.command == "SQRMT" || request.command == "SQRML" || request.command == "SQRIN" || request.command == "SQRFT" ||
-            request.command == "LTR" || request.command == "GALNU" || request.command == "GALNI" || request.command == "CUBM" ||
-            request.command == "KILO" || request.command == "PND" || request.command == "CART" || request.command == "CELS" ||
-            request.command == "FAHR" || request.command == "KELV") {
+            iss >> request.user_name;
+        } 
+        if ((request.command == "SQRMT" || request.command == "SQRML" || request.command == "SQRIN" || request.command == "SQRFT") && current_state.getMode() == "AREA"){
             request.from_unit = request.command;
-            request.command = "";
-            iss >> request.to_unit >> request.value;
-        } else {
-            request.to_unit = "";
-            request.value = 0.0;
+            iss >> request.to_unit;
+            if (request.to_unit == "SQRMT" || request.to_unit == "SQRML" || request.to_unit == "SQRIN" || request.to_unit == "SQRFT") {
+                iss >> request.value;
+                current_state.setMode("AREA");
+                current_state.badConversion = false;
+            } else {
+                cout << "504 Bad conversion request." << endl;
+                current_state.badConversion = true;
+            }
+        } 
+        if ((request.command == "LTR" || request.command == "GALNU" || request.command == "GALNI" || request.command == "CUBM") && current_state.getMode() == "VOL"){
+            request.from_unit = request.command;
+            iss >> request.to_unit;
+            if (request.to_unit == "LTR" || request.to_unit == "GALNU" || request.to_unit == "GALNI" || request.to_unit == "CUBM") {
+                iss >> request.value;
+                current_state.setMode("VOL");
+                current_state.badConversion = false;
+            } else {
+                cout << "504 Bad conversion request." << endl;
+                current_state.badConversion = true;
+            }
+        } 
+        if ((request.command == "KILO" || request.command == "PND" || request.command == "CART") && current_state.getMode() == "WGT"){
+            request.from_unit = request.command;
+            iss >> request.to_unit;
+            if (request.to_unit == "KILO" || request.to_unit == "PND" || request.to_unit == "CART") {
+                iss >> request.value;
+                current_state.setMode("WGT");
+                current_state.badConversion = false;
+            } else {
+                cout << "504 Bad conversion request." << endl;
+                current_state.badConversion = true;
+            }
+        } 
+        if ((request.command == "CELS" || request.command == "FAHR" || request.command == "KELV") && current_state.getMode() == "TEMP"){
+            request.from_unit = request.command;
+            iss >> request.to_unit;
+            if (request.to_unit == "CELS" || request.to_unit == "FAHR" || request.to_unit == "KELV") {
+                iss >> request.value;
+                current_state.setMode("TEMP");
+                current_state.badConversion = false;
+            } else {
+                cout << "504 Bad conversion request." << endl;
+                current_state.badConversion = true;
+            }
         }
-        mainCalculation(request, current_state, response_code, client_info);
+        threads.emplace_back([&request, &current_state, &response_code, &client_info]() { // new thread for each req
+            mainCalculation(request, current_state, response_code, client_info);
+        });
+        for (auto& thread : threads) {// save resources
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
+        threads.clear();
+
+        // Send response to the client
         Response res(200, response_code.c_str(), 10.0);
         sendResponse(sockfd, &res, &client_info);
+
+        if(request.command == "HELP") {
+            cout << "The following commands are available with their parameters:\n";
+            cout << "-HELO 'initalizes' the client and is entered like: HELO <name>\n";
+            cout << "-HELP shows the commands and entered like: HELP\n";
+            cout << "The following are different 'mode' commands and respective units\n";
+            cout << "*AREA: SQRMT, SQRML, SQRIN, and SQRFT\t";
+            cout << "*VOL: LTR, GALNU, GALNI, and CUBM\n";
+            cout << "*WGT: KILO, PND, and CART\t\t";
+            cout << "*TEMP: CELS, FAHR, and KELV\n";
+            cout << "Enter over two inputs as such: \n-<mode>\n-<fromUnit> <toUnit> <value>\n";
+            cout << "BYE closes the connection and entered as such: BYE\n\n";
+        }
         logRequest(&request, &client_info);
+        current_state.badConversion = false;
+        request.clearCalc();
     }
 
     return 0;
